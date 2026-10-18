@@ -6,6 +6,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@500;700;800&family=Instrument+Sans:wght@400;500;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="style.css"></head><body>
 <header><div class="wrap">
+ <div class="top"><span class="brand"><span class="logo"><i></i><i></i><i></i></span>KKMI Jombang</span><button class="admbtn" id="adm">Login admin</button></div>
  <h1 id="judul">Memuat…</h1><p id="sub"></p>
  <div class="chips" id="chips"></div>
 </div></header>
@@ -21,7 +22,7 @@
 <script>
 /* GANTI dengan URL Web App Google Apps Script (berakhiran /exec) */
 const API='https://script.google.com/macros/s/AKfycbw0c-JdVWD9aTyczA2iqOKRkhkjBz1-Yd4rFdMLF8ZRwTWlt-5QZ5G_JE2xXV9u_bA/exec';
-const TABS=[['beranda','Beranda'],['daftar','Pendaftaran'],['tugas','Tugas'],['matriks','Matriks'],['admin','Admin']];
+const TABS=[['beranda','Beranda'],['daftar','Pendaftaran'],['tugas','Tugas'],['matriks','Matriks']];
 const CFG=[['judul','Judul kegiatan','text'],['subjudul','Sub judul','text'],['tanggal_workshop','Tanggal pelaksanaan','text'],['tempat','Tempat','text'],['kuota','Kuota peserta (0 = tanpa batas)','number'],['kontak','Kontak panitia (WA/email)','text'],
  ['daftar_mode','Pendaftaran','mode'],['daftar_buka','Pendaftaran dibuka (WIB)','datetime-local'],['daftar_tutup','Pendaftaran ditutup (WIB)','datetime-local'],
  ['tugas_mode','Pengumpulan tugas','mode'],['tugas_buka','Tugas dibuka (WIB)','datetime-local'],['tugas_tutup','Tugas ditutup (WIB)','datetime-local'],
@@ -38,9 +39,11 @@ const cnt=(arr,f)=>{const m={};arr.forEach(x=>{const k=f(x);m[k]=(m[k]||0)+1});r
 const bub=on=>`<span class="bub ${on?'f':''}" role="img" aria-label="${on?'ya':'belum'}"></span>`;
 const empty=t=>`<div class="empty">${t}</div>`;
 
+const title=t=>{const m=t.match(/^(\S+)\s+(.+?)\s+(Berbantuan\s.+)$/);return m?`<span class="k">${esc(m[1])}</span><span class="m">${esc(m[2])}</span><span class="t">${esc(m[3])}</span>`:esc(t)};
+const dt=s=>{if(!s)return'<strong class="nd">Belum ditentukan</strong>';const d=new Date(s+':00+07:00'),z={timeZone:'Asia/Jakarta'};return`<strong>${d.toLocaleDateString('id-ID',{day:'numeric',month:'short',year:'numeric',...z})}</strong><small>${d.toLocaleTimeString('id-ID',{hour:'2-digit',minute:'2-digit',...z})} WIB</small>`};
 function render(){
  const c=D.config;document.title=c.judul;
- $('#judul').innerHTML=esc(c.judul).replace(/(Bank Soal dan Kisi-Kisi)/,'<mark>$1</mark>');$('#sub').textContent=c.subjudul;
+ $('#judul').innerHTML=title(c.judul);$('#sub').textContent=c.subjudul;$('#adm').textContent=tab==='admin'?'Kembali ke dashboard':PW?'Panel admin':'Login admin';
  $('#chips').innerHTML=`<span class="chip"><i class="dot ${D.open.daftar?'on':''}"></i>Pendaftaran ${D.open.daftar?'dibuka':'ditutup'}</span><span class="chip"><i class="dot ${D.open.tugas?'on':''}"></i>Pengumpulan tugas ${D.open.tugas?'dibuka':'ditutup'}</span>`+(c.tanggal_workshop?`<span class="chip">${esc(c.tanggal_workshop)}${c.tempat?' - '+esc(c.tempat):''}</span>`:'');
  $('#tabs').innerHTML=TABS.map(([k,l])=>`<button role="tab" aria-selected="${k===tab}" data-t="${k}">${l}</button>`).join('');
  document.querySelectorAll('.pane').forEach(p=>p.classList.toggle('on',p.id==='p-'+tab));
@@ -66,7 +69,7 @@ function beranda(){
   <div class="card"><h3>Progres pengumpulan tugas</h3><div class="stat"><b>${pct}%</b></div><div class="bar" role="progressbar" aria-valuenow="${pct}" aria-valuemin="0" aria-valuemax="100"><i style="width:${pct}%"></i></div>
    <p style="color:var(--mu);margin:10px 0 0">Soal terkumpul ${soal} dari ${n}; kisi-kisi ${kisi} dari ${n}.</p></div>
   <div class="card"><h3>Peserta per madrasah</h3>${mad.length?mad.slice(0,8).map(([m,v])=>`<div class="hb"><span title="${esc(m)}">${esc(m)}</span><div class="bar"><i style="width:${v/mx*100}%"></i></div><b>${v}</b></div>`).join(''):empty('Belum ada pendaftar.')}</div>
-  <div class="card"><h3>Jadwal</h3><table><tr><th>Pendaftaran</th><td>${fmt(c.daftar_buka)} s.d. ${fmt(c.daftar_tutup)}</td></tr><tr><th>Pengumpulan tugas</th><td>${fmt(c.tugas_buka)} s.d. ${fmt(c.tugas_tutup)}</td></tr><tr><th>Pelaksanaan</th><td>${esc(c.tanggal_workshop)||'-'}</td></tr><tr><th>Kontak</th><td>${esc(c.kontak)||'-'}</td></tr></table></div>
+  <div class="card"><h3>Jadwal kegiatan</h3><div class="tl">${[['Pendaftaran',c.daftar_buka,c.daftar_tutup,D.open.daftar],['Pengumpulan tugas',c.tugas_buka,c.tugas_tutup,D.open.tugas]].map(([l,a,b,o])=>`<div class="ti ${o?'on':''}"><i></i><div><b>${l}</b>${o?'<em>Sedang dibuka</em>':''}<div class="rg"><div><small>Buka</small>${dt(a)}</div><span class="ar"></span><div><small>Tutup</small>${dt(b)}</div></div></div></div>`).join('')}<div class="ti"><i></i><div><b>Pelaksanaan</b><p>${esc(c.tanggal_workshop)||'Akan diumumkan'}${c.tempat?', '+esc(c.tempat):''}</p></div></div><div class="ti"><i></i><div><b>Kontak panitia</b><p>${esc(c.kontak)||'Belum tersedia'}</p></div></div></div></div>
  </div>`}
 
 /* ---- Pendaftaran ---- */
@@ -119,14 +122,14 @@ function matriks(){
 function admin(){
  const el=$('#p-admin');
  if(!PW){el.innerHTML=`<div class="card" style="max-width:380px"><h3>Masuk admin</h3><form id="fl"><label for="pw">Password</label><input id="pw" type="password" required autocomplete="current-password"><p><button class="btn">Masuk</button></p><div class="msg" id="ml2" role="status"></div></form></div>`;
-  $('#fl').onsubmit=async e=>{e.preventDefault();const p=$('#pw').value;try{await req({action:'login',password:p});PW=p;sessionStorage.setItem('pw',p);admin()}catch(x){$('#ml2').className='msg e';$('#ml2').textContent=x.message}};return}
+  $('#fl').onsubmit=async e=>{e.preventDefault();const p=$('#pw').value;try{await req({action:'login',password:p});PW=p;sessionStorage.setItem('pw',p);render()}catch(x){$('#ml2').className='msg e';$('#ml2').textContent=x.message}};return}
  const c=D.config,fld=([k,l,t])=>{const v=esc(c[k]),i='c_'+k;
   const inp=t==='textarea'?`<textarea id="${i}" rows="3">${v}</textarea>`:t==='mode'?`<select id="${i}">${[['auto','Ikuti jadwal'],['buka','Buka paksa'],['tutup','Tutup paksa']].map(([a,b])=>`<option value="${a}" ${c[k]===a?'selected':''}>${b}</option>`).join('')}</select>`:t==='yn'?`<select id="${i}"><option value="ya" ${c[k]==='ya'?'selected':''}>Tampilkan</option><option value="tidak" ${c[k]!=='ya'?'selected':''}>Sembunyikan</option></select>`:`<input id="${i}" type="${t}" value="${v}">`;
   return`<div class="${t==='textarea'?'w':''}"><label for="${i}">${l}</label>${inp}</div>`};
  const tbl=(sheet,H,R)=>`<div class="card" style="margin-top:14px"><div class="tool"><h3 style="margin:0">Data ${sheet} (${R.length})</h3><button class="btn s" data-add="${sheet}">Tambah baris</button></div><div class="tw"><table><thead><tr>${H.map(h=>`<th>${h}</th>`).join('')}<th></th></tr></thead><tbody>${R.map((r,i)=>`<tr>${H.map(h=>`<td>${/^https?:/.test(r[h])?'Link':esc(r[h])}</td>`).join('')}<td style="white-space:nowrap"><button class="btn s" data-ed="${sheet}:${i}">Ubah</button> <button class="btn s d" data-del="${sheet}:${i}">Hapus</button></td></tr>`).join('')}</tbody></table></div></div>`;
  el.innerHTML=`<div class="tool"><h2>Pengaturan kegiatan</h2><button class="btn s" id="out">Keluar</button></div><div class="card"><div class="f">${CFG.map(fld).join('')}</div><p><button class="btn" id="sv">Simpan pengaturan</button></p><div class="msg" id="ms" role="status"></div></div>`
   +tbl('Peserta',['Nama','Madrasah Asal','Jabatan','Keterangan'],D.peserta)+tbl('Tugas',['Nama','Madrasah Asal','Link Soal','Link Kisi','Keterangan','Sertifikat'],D.tugas);
- $('#out').onclick=()=>{PW='';sessionStorage.removeItem('pw');admin()};
+ $('#out').onclick=()=>{PW='';sessionStorage.removeItem('pw');render()};
  $('#sv').onclick=async()=>{const d={};CFG.forEach(([k])=>d[k]=$('#c_'+k).value);try{D=await req({action:'simpanConfig',password:PW,data:d});render();$('#ms').className='msg k';$('#ms').textContent='Pengaturan tersimpan.'}catch(x){$('#ms').className='msg e';$('#ms').textContent=x.message}};
  el.onclick=async e=>{const b=e.target.closest('button');if(!b)return;
   if(b.dataset.add)return edit(b.dataset.add,null);
@@ -140,6 +143,7 @@ function edit(sheet,r){
  $('#dform').onsubmit=async e=>{if(e.submitter?.value!=='ok')return;e.preventDefault();const data={};H.forEach((h,i)=>data[h]=$('#e'+i).value);
   try{D=await req({action:'simpanBaris',password:PW,sheet,row:r?._row||0,data});d.close();render()}catch(x){$('#me').textContent=x.message}}}
 
+$('#adm').onclick=()=>{tab=tab==='admin'?'beranda':'admin';location.hash=tab;if(D)render();scrollTo({top:0,behavior:'smooth'})};
 load();
 </script>
 <script src="fx.js"></script></body></html>
