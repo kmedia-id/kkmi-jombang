@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="id"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Workshop Bank Soal & Kisi-Kisi AI - KKMI Jombang</title>
+<meta name="theme-color" content="#3a1fb5">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@500;700;800&family=Instrument+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css"></head><body>
+<header><div class="wrap">
+ <h1 id="judul">Memuat…</h1><p id="sub"></p>
+ <div class="chips" id="chips"></div>
+</div></header>
+<nav><div class="wrap" role="tablist" id="tabs"></div></nav>
+<main class="wrap">
+ <section class="pane" id="p-beranda"></section>
+ <section class="pane" id="p-daftar"></section>
+ <section class="pane" id="p-tugas"></section>
+ <section class="pane" id="p-matriks"></section>
+ <section class="pane" id="p-admin"></section>
+</main>
+<dialog id="dlg"><form method="dialog" id="dform"></form></dialog>
+<script>
+/* GANTI dengan URL Web App Google Apps Script (berakhiran /exec) */
+const API='GANTI_DENGAN_URL_WEB_APP_ANDA';
+const TABS=[['beranda','Beranda'],['daftar','Pendaftaran'],['tugas','Tugas'],['matriks','Matriks'],['admin','Admin']];
+const CFG=[['judul','Judul kegiatan','text'],['subjudul','Sub judul','text'],['tanggal_workshop','Tanggal pelaksanaan','text'],['tempat','Tempat','text'],['kuota','Kuota peserta (0 = tanpa batas)','number'],['kontak','Kontak panitia (WA/email)','text'],
+ ['daftar_mode','Pendaftaran','mode'],['daftar_buka','Pendaftaran dibuka (WIB)','datetime-local'],['daftar_tutup','Pendaftaran ditutup (WIB)','datetime-local'],
+ ['tugas_mode','Pengumpulan tugas','mode'],['tugas_buka','Tugas dibuka (WIB)','datetime-local'],['tugas_tutup','Tugas ditutup (WIB)','datetime-local'],
+ ['sertifikat_aktif','Tombol unduh sertifikat','yn'],['pengumuman','Pengumuman di beranda','textarea']];
+const $=s=>document.querySelector(s),esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const nm=s=>String(s||'').trim().toLowerCase().replace(/\s+/g,' '),key=(a,b)=>nm(a)+'|'+nm(b);
+let D=null,PW=sessionStorage.getItem('pw')||'',tab=location.hash.slice(1)||'beranda';
+
+async function req(body){const r=await fetch(API,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(body)});const j=await r.json();if(!j.ok)throw new Error(j.error);return j}
+async function load(){try{const r=await fetch(API);D=await r.json();if(!D.ok)throw 0}catch(e){$('#judul').textContent='Data gagal dimuat';$('#sub').textContent='Periksa URL Web App di index.html dan pengaturan akses (Siapa saja).';return}render()}
+function fmt(s){if(!s)return'-';return new Date(s+':00+07:00').toLocaleString('id-ID',{dateStyle:'medium',timeStyle:'short'})+' WIB'}
+const tmap=()=>Object.fromEntries(D.tugas.map(t=>[key(t.Nama,t['Madrasah Asal']),t]));
+const cnt=(arr,f)=>{const m={};arr.forEach(x=>{const k=f(x);m[k]=(m[k]||0)+1});return m};
+const bub=on=>`<span class="bub ${on?'f':''}" role="img" aria-label="${on?'ya':'belum'}"></span>`;
+const empty=t=>`<div class="empty">${t}</div>`;
+
+function render(){
+ const c=D.config;document.title=c.judul;
+ $('#judul').innerHTML=esc(c.judul).replace(/(Bank Soal dan Kisi-Kisi)/,'<mark>$1</mark>');$('#sub').textContent=c.subjudul;
+ $('#chips').innerHTML=`<span class="chip"><i class="dot ${D.open.daftar?'on':''}"></i>Pendaftaran ${D.open.daftar?'dibuka':'ditutup'}</span><span class="chip"><i class="dot ${D.open.tugas?'on':''}"></i>Pengumpulan tugas ${D.open.tugas?'dibuka':'ditutup'}</span>`+(c.tanggal_workshop?`<span class="chip">${esc(c.tanggal_workshop)}${c.tempat?' - '+esc(c.tempat):''}</span>`:'');
+ $('#tabs').innerHTML=TABS.map(([k,l])=>`<button role="tab" aria-selected="${k===tab}" data-t="${k}">${l}</button>`).join('');
+ document.querySelectorAll('.pane').forEach(p=>p.classList.toggle('on',p.id==='p-'+tab));
+ ({beranda,daftar,tugas,matriks,admin})[tab]();
+}
+$('#tabs').onclick=e=>{const b=e.target.closest('button');if(!b)return;tab=b.dataset.t;location.hash=tab;if(D)render()};
+
+/* ---- Beranda ---- */
+function beranda(){
+ const c=D.config,P=D.peserta,T=tmap(),n=P.length,soal=P.filter(p=>T[key(p.Nama,p['Madrasah Asal'])]?.['Link Soal']).length,kisi=P.filter(p=>T[key(p.Nama,p['Madrasah Asal'])]?.['Link Kisi']).length;
+ const lengkap=P.filter(p=>{const t=T[key(p.Nama,p['Madrasah Asal'])];return t&&t['Link Soal']&&t['Link Kisi']}).length,pct=n?Math.round(lengkap/n*100):0;
+ const g=P.filter(p=>p.Jabatan==='Guru').length,k=P.filter(p=>p.Jabatan==='Kepala Sekolah').length,gd=n?g/n*360:0;
+ const mad=Object.entries(cnt(P,p=>p['Madrasah Asal'].trim())).sort((a,b)=>b[1]-a[1]),mx=mad[0]?.[1]||1,kuota=Number(c.kuota)||0;
+ $('#p-beranda').innerHTML=(c.pengumuman?`<div class="note">${esc(c.pengumuman).replace(/\n/g,'<br>')}</div>`:'')+`
+ <div class="grid g4">
+  <div class="card stat"><b>${n}</b><span>Peserta terdaftar</span></div>
+  <div class="card stat"><b>${mad.length}</b><span>Madrasah terwakili</span></div>
+  <div class="card stat"><b>${lengkap}</b><span>Tugas lengkap (soal dan kisi)</span></div>
+  <div class="card stat"><b>${kuota?Math.max(kuota-n,0):'-'}</b><span>${kuota?'Sisa kuota dari '+kuota:'Tanpa batas kuota'}</span></div>
+ </div><div class="grid g2" style="margin-top:14px">
+  <div class="card"><h3>Komposisi peserta</h3><div class="row"><div class="donut" style="background:${n?`conic-gradient(var(--ink) 0 ${gd}deg,var(--hl) ${gd}deg 360deg)`:'var(--soft)'}"><div>${n}</div></div>
+   <div class="lg"><span><i style="background:var(--ink)"></i>Guru: ${g}</span><span><i style="background:var(--hl)"></i>Kepala Sekolah: ${k}</span></div></div></div>
+  <div class="card"><h3>Progres pengumpulan tugas</h3><div class="stat"><b>${pct}%</b></div><div class="bar" role="progressbar" aria-valuenow="${pct}" aria-valuemin="0" aria-valuemax="100"><i style="width:${pct}%"></i></div>
+   <p style="color:var(--mu);margin:10px 0 0">Soal terkumpul ${soal} dari ${n}; kisi-kisi ${kisi} dari ${n}.</p></div>
+  <div class="card"><h3>Peserta per madrasah</h3>${mad.length?mad.slice(0,8).map(([m,v])=>`<div class="hb"><span title="${esc(m)}">${esc(m)}</span><div class="bar"><i style="width:${v/mx*100}%"></i></div><b>${v}</b></div>`).join(''):empty('Belum ada pendaftar.')}</div>
+  <div class="card"><h3>Jadwal</h3><table><tr><th>Pendaftaran</th><td>${fmt(c.daftar_buka)} s.d. ${fmt(c.daftar_tutup)}</td></tr><tr><th>Pengumpulan tugas</th><td>${fmt(c.tugas_buka)} s.d. ${fmt(c.tugas_tutup)}</td></tr><tr><th>Pelaksanaan</th><td>${esc(c.tanggal_workshop)||'-'}</td></tr><tr><th>Kontak</th><td>${esc(c.kontak)||'-'}</td></tr></table></div>
+ </div>`}
+
+/* ---- Pendaftaran ---- */
+function daftar(){
+ const P=D.peserta,mads=[...new Set(P.map(p=>p['Madrasah Asal'].trim()))];
+ $('#p-daftar').innerHTML=`<div class="card" style="margin-bottom:14px"><h3>Daftar sebagai peserta</h3>
+ ${D.open.daftar?`<form id="fd" class="f"><div><label for="d1">Nama lengkap</label><input id="d1" name="Nama" required></div>
+ <div><label for="d2">Madrasah asal</label><input id="d2" name="Madrasah Asal" list="ml" required></div>
+ <div><label for="d3">Jabatan</label><select id="d3" name="Jabatan" required><option value="">Pilih jabatan</option><option>Guru</option><option>Kepala Sekolah</option></select></div>
+ <div><label for="d4">Keterangan (opsional)</label><input id="d4" name="Keterangan"></div>
+ <div class="w"><button class="btn">Daftar sekarang</button><div class="msg" id="md" role="status"></div></div></form><datalist id="ml">${mads.map(m=>`<option value="${esc(m)}">`).join('')}</datalist>`
+ :`<p style="margin:0">Pendaftaran ditutup. Jadwal: ${fmt(D.config.daftar_buka)} s.d. ${fmt(D.config.daftar_tutup)}.</p>`}</div>
+ <div class="card"><div class="tool"><h3 style="margin:0">Rekap pendaftaran (${P.length})</h3><input type="search" id="qs" placeholder="Cari nama atau madrasah" aria-label="Cari"></div>
+ <div class="tw"><table><thead><tr><th>No</th><th>Nama</th><th>Madrasah</th><th>Jabatan</th><th>Keterangan</th></tr></thead><tbody id="tb"></tbody></table></div></div>`;
+ const draw=q=>{const r=P.filter(p=>nm(p.Nama+' '+p['Madrasah Asal']).includes(nm(q)));$('#tb').innerHTML=r.length?r.map((p,i)=>`<tr><td>${i+1}</td><td>${esc(p.Nama)}</td><td>${esc(p['Madrasah Asal'])}</td><td>${esc(p.Jabatan)}</td><td>${esc(p.Keterangan)}</td></tr>`).join(''):`<tr><td colspan="5">${empty('Tidak ada data.')}</td></tr>`};
+ draw('');$('#qs').oninput=e=>draw(e.target.value);
+ const f=$('#fd');if(f)f.onsubmit=e=>submit(e,'daftar','#md','Pendaftaran berhasil dikirim.')}
+
+async function submit(e,action,msg,ok){e.preventDefault();const f=e.target,b=f.querySelector('button'),m=$(msg);b.disabled=true;m.className='msg';m.textContent='Mengirim…';
+ try{D=await req({action,data:Object.fromEntries(new FormData(f))});render();$(msg).className='msg k';$(msg).textContent=ok}catch(x){m.className='msg e';m.textContent=x.message;b.disabled=false}}
+
+/* ---- Tugas ---- */
+function tugas(){
+ const T=D.tugas,sertOn=D.config.sertifikat_aktif==='ya';
+ $('#p-tugas').innerHTML=`<div class="card" style="margin-bottom:14px"><h3>Kumpulkan tugas</h3>
+ ${D.open.tugas?`<form id="ft" class="f"><div><label for="t1">Nama (sesuai pendaftaran)</label><input id="t1" name="Nama" required></div>
+ <div><label for="t2">Madrasah asal</label><input id="t2" name="Madrasah Asal" required></div>
+ <div><label for="t3">Link soal</label><input id="t3" name="Link Soal" type="url" placeholder="https://" required></div>
+ <div><label for="t4">Link kisi-kisi</label><input id="t4" name="Link Kisi" type="url" placeholder="https://" required></div>
+ <div class="w"><label for="t5">Keterangan (opsional)</label><input id="t5" name="Keterangan"></div>
+ <div class="w"><button class="btn">Kirim tugas</button><div class="msg" id="mt" role="status"></div><p style="color:var(--mu);margin:6px 0 0">Pastikan link Google Drive dapat dibuka oleh panitia. Mengirim ulang akan memperbarui tugas sebelumnya.</p></div></form>`
+ :`<p style="margin:0">Pengumpulan tugas ditutup. Jadwal: ${fmt(D.config.tugas_buka)} s.d. ${fmt(D.config.tugas_tutup)}.</p>`}</div>
+ <div class="card"><h3>Rekap tugas (${T.length})</h3><div class="tw"><table><thead><tr><th>Nama</th><th>Madrasah</th><th>Soal</th><th>Kisi</th><th>Keterangan</th><th>Sertifikat</th></tr></thead><tbody>
+ ${T.length?T.map(t=>`<tr><td>${esc(t.Nama)}</td><td>${esc(t['Madrasah Asal'])}</td><td>${lnk(t['Link Soal'],'Buka')}</td><td>${lnk(t['Link Kisi'],'Buka')}</td><td>${esc(t.Keterangan)}</td><td>${t.Sertifikat&&sertOn?`<a class="btn s" href="${esc(t.Sertifikat)}" target="_blank" rel="noopener">Unduh</a>`:'<span style="color:var(--mu)">Belum tersedia</span>'}</td></tr>`).join(''):`<tr><td colspan="6">${empty('Belum ada tugas yang masuk.')}</td></tr>`}
+ </tbody></table></div></div>`;
+ const f=$('#ft');if(f)f.onsubmit=e=>submit(e,'kirimTugas','#mt','Tugas berhasil dikirim.')}
+const lnk=u=>/^https?:/i.test(u)?`<a href="${esc(u)}" target="_blank" rel="noopener" style="color:var(--ink);font-weight:600">Buka</a>`:'<span style="color:var(--mu)">-</span>';
+
+/* ---- Matriks ---- */
+function matriks(){
+ const P=D.peserta,T=tmap(),by={};
+ P.forEach(p=>{const m=p['Madrasah Asal'].trim(),t=T[key(p.Nama,p['Madrasah Asal'])],o=by[m]||(by[m]={n:0,g:0,k:0,s:0,i:0,l:0});o.n++;p.Jabatan==='Guru'?o.g++:o.k++;if(t?.['Link Soal'])o.s++;if(t?.['Link Kisi'])o.i++;if(t?.['Link Soal']&&t?.['Link Kisi'])o.l++});
+ const M=Object.entries(by).sort((a,b)=>b[1].n-a[1].n);
+ $('#p-matriks').innerHTML=`<div class="card" style="margin-bottom:14px"><h3>Matriks per madrasah</h3><div class="tw"><table><thead><tr><th>Madrasah</th><th class="c">Guru</th><th class="c">Kepala</th><th class="c">Total</th><th class="c">Soal</th><th class="c">Kisi</th><th style="min-width:150px">Tugas lengkap</th></tr></thead><tbody>
+ ${M.length?M.map(([m,o])=>{const p=Math.round(o.l/o.n*100);return`<tr><td>${esc(m)}</td><td class="c">${o.g}</td><td class="c">${o.k}</td><td class="c"><b>${o.n}</b></td><td class="c">${o.s}/${o.n}</td><td class="c">${o.i}/${o.n}</td><td><div class="bar"><i style="width:${p}%"></i></div></td></tr>`}).join(''):`<tr><td colspan="7">${empty('Belum ada data.')}</td></tr>`}</tbody></table></div></div>
+ <div class="card"><h3>Matriks status peserta</h3><p style="color:var(--mu);margin:-6px 0 12px;display:flex;gap:6px;align-items:center">${bub(1)} sudah &nbsp; ${bub(0)} belum</p><div class="tw"><table><thead><tr><th>Nama</th><th>Madrasah</th><th class="c">Terdaftar</th><th class="c">Soal</th><th class="c">Kisi</th><th class="c">Sertifikat</th></tr></thead><tbody>
+ ${P.length?P.map(p=>{const t=T[key(p.Nama,p['Madrasah Asal'])]||{};return`<tr><td>${esc(p.Nama)}</td><td>${esc(p['Madrasah Asal'])}</td><td class="c">${bub(1)}</td><td class="c">${bub(t['Link Soal'])}</td><td class="c">${bub(t['Link Kisi'])}</td><td class="c">${bub(t.Sertifikat)}</td></tr>`}).join(''):`<tr><td colspan="6">${empty('Belum ada data.')}</td></tr>`}</tbody></table></div></div>`}
+
+/* ---- Admin ---- */
+function admin(){
+ const el=$('#p-admin');
+ if(!PW){el.innerHTML=`<div class="card" style="max-width:380px"><h3>Masuk admin</h3><form id="fl"><label for="pw">Password</label><input id="pw" type="password" required autocomplete="current-password"><p><button class="btn">Masuk</button></p><div class="msg" id="ml2" role="status"></div></form></div>`;
+  $('#fl').onsubmit=async e=>{e.preventDefault();const p=$('#pw').value;try{await req({action:'login',password:p});PW=p;sessionStorage.setItem('pw',p);admin()}catch(x){$('#ml2').className='msg e';$('#ml2').textContent=x.message}};return}
+ const c=D.config,fld=([k,l,t])=>{const v=esc(c[k]),i='c_'+k;
+  const inp=t==='textarea'?`<textarea id="${i}" rows="3">${v}</textarea>`:t==='mode'?`<select id="${i}">${[['auto','Ikuti jadwal'],['buka','Buka paksa'],['tutup','Tutup paksa']].map(([a,b])=>`<option value="${a}" ${c[k]===a?'selected':''}>${b}</option>`).join('')}</select>`:t==='yn'?`<select id="${i}"><option value="ya" ${c[k]==='ya'?'selected':''}>Tampilkan</option><option value="tidak" ${c[k]!=='ya'?'selected':''}>Sembunyikan</option></select>`:`<input id="${i}" type="${t}" value="${v}">`;
+  return`<div class="${t==='textarea'?'w':''}"><label for="${i}">${l}</label>${inp}</div>`};
+ const tbl=(sheet,H,R)=>`<div class="card" style="margin-top:14px"><div class="tool"><h3 style="margin:0">Data ${sheet} (${R.length})</h3><button class="btn s" data-add="${sheet}">Tambah baris</button></div><div class="tw"><table><thead><tr>${H.map(h=>`<th>${h}</th>`).join('')}<th></th></tr></thead><tbody>${R.map((r,i)=>`<tr>${H.map(h=>`<td>${/^https?:/.test(r[h])?'Link':esc(r[h])}</td>`).join('')}<td style="white-space:nowrap"><button class="btn s" data-ed="${sheet}:${i}">Ubah</button> <button class="btn s d" data-del="${sheet}:${i}">Hapus</button></td></tr>`).join('')}</tbody></table></div></div>`;
+ el.innerHTML=`<div class="tool"><h2>Pengaturan kegiatan</h2><button class="btn s" id="out">Keluar</button></div><div class="card"><div class="f">${CFG.map(fld).join('')}</div><p><button class="btn" id="sv">Simpan pengaturan</button></p><div class="msg" id="ms" role="status"></div></div>`
+  +tbl('Peserta',['Nama','Madrasah Asal','Jabatan','Keterangan'],D.peserta)+tbl('Tugas',['Nama','Madrasah Asal','Link Soal','Link Kisi','Keterangan','Sertifikat'],D.tugas);
+ $('#out').onclick=()=>{PW='';sessionStorage.removeItem('pw');admin()};
+ $('#sv').onclick=async()=>{const d={};CFG.forEach(([k])=>d[k]=$('#c_'+k).value);try{D=await req({action:'simpanConfig',password:PW,data:d});render();$('#ms').className='msg k';$('#ms').textContent='Pengaturan tersimpan.'}catch(x){$('#ms').className='msg e';$('#ms').textContent=x.message}};
+ el.onclick=async e=>{const b=e.target.closest('button');if(!b)return;
+  if(b.dataset.add)return edit(b.dataset.add,null);
+  if(b.dataset.ed){const[s,i]=b.dataset.ed.split(':');return edit(s,(s==='Peserta'?D.peserta:D.tugas)[i])}
+  if(b.dataset.del){const[s,i]=b.dataset.del.split(':'),r=(s==='Peserta'?D.peserta:D.tugas)[i];if(!confirm('Hapus '+r.Nama+'?'))return;try{D=await req({action:'hapusBaris',password:PW,sheet:s,row:r._row});render()}catch(x){alert(x.message)}}}}
+
+function edit(sheet,r){
+ const H=sheet==='Peserta'?['Nama','Madrasah Asal','Jabatan','Keterangan']:['Nama','Madrasah Asal','Link Soal','Link Kisi','Keterangan','Sertifikat'];
+ $('#dform').innerHTML=`<h3 style="margin-bottom:12px">${r?'Ubah':'Tambah'} data ${sheet}</h3><div class="f">${H.map((h,i)=>`<div class="w"><label for="e${i}">${h}${h==='Sertifikat'?' (link unduh)':''}</label>${h==='Jabatan'?`<select id="e${i}"><option ${r?.Jabatan==='Guru'?'selected':''}>Guru</option><option ${r?.Jabatan==='Kepala Sekolah'?'selected':''}>Kepala Sekolah</option></select>`:`<input id="e${i}" value="${esc(r?.[h]||'')}">`}</div>`).join('')}</div><p style="display:flex;gap:8px"><button class="btn" value="ok">Simpan</button><button class="btn s" value="x" formnovalidate>Batal</button></p><div class="msg e" id="me"></div>`;
+ const d=$('#dlg');d.showModal();
+ $('#dform').onsubmit=async e=>{if(e.submitter?.value!=='ok')return;e.preventDefault();const data={};H.forEach((h,i)=>data[h]=$('#e'+i).value);
+  try{D=await req({action:'simpanBaris',password:PW,sheet,row:r?._row||0,data});d.close();render()}catch(x){$('#me').textContent=x.message}}}
+
+load();
+</script>
+<script src="fx.js"></script></body></html>
